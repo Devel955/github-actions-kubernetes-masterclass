@@ -1,0 +1,62 @@
+name: AIOps - AI Powered DevOps
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+
+jobs:
+  ai-failure-analysis:
+    name: 🤖 AI Failure Analysis
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get failed workflow logs
+        id: get_logs
+        run: |
+          echo "CI Pipeline failed - collecting logs..."
+          echo "FAILED_WORKFLOW=${{ github.event.workflow_run.name }}" >> $GITHUB_ENV
+          echo "FAILED_AT=$(date)" >> $GITHUB_ENV
+
+      - name: AI Root Cause Analysis
+        run: |
+          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+              "model": "claude-opus-4-5",
+              "max_tokens": 1024,
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "CI/CD pipeline failed for SkillPulse app. Suggest top 3 likely causes and fixes."
+                }
+              ]
+            }')
+          echo "$RESPONSE" > ai-analysis.txt
+
+      - name: Upload AI Analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-failure-analysis
+          path: ai-analysis.txt
+
+  ai-security-report:
+    name: 🛡️ AI Security Report
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate AI Security Summary
+        run: |
+          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
