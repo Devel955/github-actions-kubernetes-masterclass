@@ -252,13 +252,10 @@ docker build -t trainwithshubham/skillpulse-frontend:latest ./frontend
 kind create cluster --config k8s/kind-config.yaml --name skillpulse
 kind load docker-image trainwithshubham/skillpulse-backend:latest  --name skillpulse
 kind load docker-image trainwithshubham/skillpulse-frontend:latest --name skillpulse
-kubectl apply -f k8s/00-namespace.yaml \
-              -f k8s/10-mysql.yaml \
-              -f k8s/20-backend.yaml \
-              -f k8s/30-frontend.yaml
-kubectl rollout status statefulset/mysql   -n skillpulse --timeout=180s
-kubectl rollout status deployment/backend  -n skillpulse --timeout=120s
-kubectl rollout status deployment/frontend -n skillpulse --timeout=60s
+kubectl apply -k k8s/overlays/dev
+kubectl rollout status statefulset/mysql   -n skillpulse-dev --timeout=180s
+kubectl rollout status deployment/backend  -n skillpulse-dev --timeout=120s
+kubectl rollout status deployment/frontend -n skillpulse-dev --timeout=60s
 ```
 
 Notes on this flow:
@@ -266,6 +263,7 @@ Notes on this flow:
 - **`docker build` runs on your laptop**, producing images for your host's architecture (Apple Silicon → arm64; Intel/Linux → amd64). The cluster never has to deal with multi-arch.
 - **`kind load docker-image`** copies each image into the kind node's containerd. `imagePullPolicy: IfNotPresent` on the Deployments means k8s reuses the loaded image and never tries to pull from Docker Hub.
 - **`kind-config.yaml`** lives alongside the manifests for proximity, but it's a `kind` config — not a Kubernetes resource — so it's fed to `kind create cluster`, not `kubectl apply`.
+- **`kubectl apply -k k8s/overlays/dev`** renders the base manifests with the dev namespace and labels. Use `ENV=staging make apply` or `ENV=production make apply` to promote the same base to other environments.
 
 Inner-loop after editing code: `make restart` rebuilds the images, reloads them into the cluster, and rolls the Deployments.
 
@@ -305,6 +303,10 @@ k8s/
   10-mysql.yaml         Secret + ConfigMap (init.sql) + headless Service + StatefulSet + 1Gi PVC
   20-backend.yaml       Deployment + ClusterIP Service, env from Secret, /health probes
   30-frontend.yaml      Deployment + NodePort Service (30080), / probes
+  base/                 reusable Kubernetes base used by every environment
+  overlays/dev/         namespace skillpulse-dev, one backend/frontend replica
+  overlays/staging/     namespace skillpulse-staging, two backend/frontend replicas
+  overlays/production/  namespace skillpulse-production, three backend/frontend replicas
 ```
 
 ### Useful commands
@@ -351,6 +353,7 @@ git push to main
 CI: build images, push trainwithshubham/skillpulse-{backend,frontend}:{latest,<sha>}
     ↓
 cd-k8s.yml: sed image: lines in k8s/20-backend.yaml + k8s/30-frontend.yaml
+            and k8s/base/20-backend.yaml + k8s/base/30-frontend.yaml
             commit "deploy: pin backend+frontend to <short-sha>" to main as github-actions[bot]
     ↓
 (you, locally):
@@ -377,7 +380,7 @@ kind nodes pull the new :<sha> from Docker Hub → rolling update
    ```bash
    git pull
    make apply
-   kubectl get pods -n skillpulse -o wide
+   kubectl get pods -n skillpulse-dev -o wide
    ```
    You'll see new pods with the bumped image rolling out. mysql untouched.
 
@@ -389,7 +392,7 @@ The previous chapter's `cd.yml` is still in the repo — it SSHes into an EC2 an
 
 - **Push a commit that fails to build** → both CD workflows are *skipped*, not failed (the `if: success()` gate).
 - **Rotate the Docker Hub token** → next CI fails at the login step. You'll learn what an expired credential looks like in logs.
-- **Edit `k8s/20-backend.yaml`'s image tag by hand and push** → CI is *skipped* (paths-ignore), `cd-k8s.yml` does fire but the manifest is already pinned, so it no-ops and exits 0. That's the loop-protection working.
+- **Edit `k8s/20-backend.yaml` or `k8s/base/20-backend.yaml`'s image tag by hand and push** → CI is *skipped* (paths-ignore), `cd-k8s.yml` does fire but the manifest is already pinned, so it no-ops and exits 0. That's the loop-protection working.
 
 ---
 
