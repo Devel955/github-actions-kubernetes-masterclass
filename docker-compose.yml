@@ -20,7 +20,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-
+    
   backend:
     image: ${DOCKERHUB_USERNAME}/skillpulse-backend:latest
     build: ./backend
@@ -34,6 +34,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       PORT: "8080"
+  
     depends_on:
       db:
         condition: service_healthy
@@ -49,44 +50,8 @@ services:
     depends_on:
       - backend
 
-  prometheus:
-    image: prom/prometheus:latest
-    restart: unless-stopped
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    networks:
-      - skillpulse
-
-  grafana:
-    image: grafana/grafana:latest
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin123
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
-    depends_on:
-      - prometheus
-    networks:
-      - skillpulse
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
-    networks:
-      - skillpulse
-
 volumes:
   mysql_data:
-  prometheus_data:
-  grafana_data:
 
 networks:
   skillpulse:
