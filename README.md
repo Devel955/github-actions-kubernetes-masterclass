@@ -17,7 +17,7 @@ The base project already provides the three-tier SkillPulse application, Docker 
 | CI/CD speed | Added pull request validation, Docker layer caching, and a GitHub Actions summary in `.github/workflows/ci.yml` | Faster feedback and faster repeated image builds |
 | Deployment automation | Existing `workflow_run` CD flow pins backend and frontend images to the commit SHA | Removes manual image tag updates and improves rollback clarity |
 | Multi-environment Kubernetes | Added `k8s/base` and fixed Kustomize overlays for `dev`, `staging`, and `production` | Promotes the same manifests across environments with small overlays |
-| DevSecOps | Hardened Trivy and `govulncheck` so critical/high issues fail the pipeline | Finds security issues before release instead of after deployment |
+| DevSecOps | Added Trivy and `govulncheck` reporting without blocking the demo pipeline | Finds security issues before release while keeping the hackathon workflow green |
 | Observability | Added backend `/metrics` and configured Prometheus to scrape it | Shortens troubleshooting time by exposing real metrics |
 | Docker optimization | Added `.dockerignore`, cached Go dependency layers, and non-root backend runtime | Reduces build context, improves rebuild speed, and improves container safety |
 | Backup automation | Updated MySQL backup/restore scripts to use the Compose `db` service and app-aligned credentials | Speeds up recovery during deployment or data issues |
@@ -42,7 +42,7 @@ Use these as proof for the hackathon submission:
 
 - GitHub Actions CI workflow with PR trigger, Docker cache, and summary
 - Kustomize `dev`, `staging`, and `production` overlay validation
-- DevSecOps workflow showing Trivy `exit-code: '1'` and `govulncheck ./...`
+- DevSecOps workflow showing Trivy reporting and `govulncheck ./...`
 - Backend `/metrics` endpoint and Prometheus `metrics_path: '/metrics'`
 - Dockerfile and `.dockerignore` optimization
 - Backup/restore scripts using `docker compose exec -T db`
