@@ -1,3 +1,4 @@
+```yaml
 name: DevSecOps - Security Scan
 
 on:
@@ -8,20 +9,25 @@ on:
 
 jobs:
   secret-scan:
-    name: 🔐 Secret Scanning
+    name: Secret Scanning
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Run Gitleaks (Secret Scanner)
         uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
 
   trivy-scan:
-    name: 🔍 Trivy Image Scan
+    name: Trivy Image Scan
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,8 +55,9 @@ jobs:
           severity: CRITICAL,HIGH
 
   govulncheck:
-    name: 🛡️ Go Vulnerability Check
+    name: Go Vulnerability Check
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,18 +65,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
-
-      - name: Download dependencies
-        run: |
-          cd backend
-          go mod download
-          go mod tidy
+          go-version: '1.22'
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
       - name: Run govulncheck
-        run: |
-          cd backend
-          govulncheck ./... || true
+        working-directory: ./backend
+        run: govulncheck ./... || true
+```
