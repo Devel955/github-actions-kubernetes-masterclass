@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
+  # Job 1: Scan code for secrets
   secret-scan:
     name: 🔐 Secret Scanning
     runs-on: ubuntu-latest
@@ -19,6 +20,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Job 2: Scan Docker images for vulnerabilities
   trivy-scan:
     name: 🔍 Trivy Image Scan
     runs-on: ubuntu-latest
@@ -48,6 +50,7 @@ jobs:
           exit-code: '0'
           severity: CRITICAL,HIGH
 
+  # Job 3: Go vulnerability check
   govulncheck:
     name: 🛡️ Go Vulnerability Check
     runs-on: ubuntu-latest
@@ -72,4 +75,4 @@ jobs:
       - name: Run govulncheck
         run: |
           cd backend
-          govulncheck ./... || true
+          govulncheck ./...
