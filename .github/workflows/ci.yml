@@ -7,6 +7,12 @@ on:
       - 'k8s/**'
       - 'docs/**'
       - '**/*.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'k8s/**'
+      - 'docs/**'
+      - '**/*.md'
 
 jobs:
   build-and-push:
@@ -27,6 +33,8 @@ jobs:
         with:
           context: ./backend
           push: ${{ vars.DEPLOY_ENABLED == 'true' }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/skillpulse-backend:latest', secrets.DOCKERHUB_USERNAME) || 'skillpulse-backend:latest' }}
             ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/skillpulse-backend:{1}', secrets.DOCKERHUB_USERNAME, github.sha) || format('skillpulse-backend:{0}', github.sha) }}
@@ -36,6 +44,22 @@ jobs:
         with:
           context: ./frontend
           push: ${{ vars.DEPLOY_ENABLED == 'true' }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/skillpulse-frontend:latest', secrets.DOCKERHUB_USERNAME) || 'skillpulse-frontend:latest' }}
             ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/skillpulse-frontend:{1}', secrets.DOCKERHUB_USERNAME, github.sha) || format('skillpulse-frontend:{0}', github.sha) }}
+
+      - name: Publish CI summary
+        run: |
+          {
+            echo "### SkillPulse CI Summary"
+            echo ""
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Deploy enabled | \`${{ vars.DEPLOY_ENABLED == 'true' }}\` |"
+            echo "| Backend cache scope | \`backend\` |"
+            echo "| Frontend cache scope | \`frontend\` |"
+            echo "| Image tags | \`latest\`, \`${{ github.sha }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -4,6 +4,53 @@ A small, real application with a real CI/CD pipeline. The app — SkillPulse —
 
 This repo is the working demo for the **TrainWithShubham GitHub Actions & Kubernetes Masterclass**.
 
+---
+
+## Hackathon Focus: Reduce Time to Market
+
+The base project already provides the three-tier SkillPulse application, Docker setup, GitHub Actions CI/CD, and Kubernetes manifests. The hackathon work in this repository focuses on improving the DevOps layer around that base so changes can move from commit to release faster, with better safety and clearer feedback.
+
+### Optimization Summary
+
+| Area | Improvement | Time-to-market impact |
+|---|---|---|
+| CI/CD speed | Added pull request validation, Docker layer caching, and a GitHub Actions summary in `.github/workflows/ci.yml` | Faster feedback and faster repeated image builds |
+| Deployment automation | Existing `workflow_run` CD flow pins backend and frontend images to the commit SHA | Removes manual image tag updates and improves rollback clarity |
+| Multi-environment Kubernetes | Added `k8s/base` and fixed Kustomize overlays for `dev`, `staging`, and `production` | Promotes the same manifests across environments with small overlays |
+| DevSecOps | Hardened Trivy and `govulncheck` so critical/high issues fail the pipeline | Finds security issues before release instead of after deployment |
+| Observability | Added backend `/metrics` and configured Prometheus to scrape it | Shortens troubleshooting time by exposing real metrics |
+| Docker optimization | Added `.dockerignore`, cached Go dependency layers, and non-root backend runtime | Reduces build context, improves rebuild speed, and improves container safety |
+| Backup automation | Updated MySQL backup/restore scripts to use the Compose `db` service and app-aligned credentials | Speeds up recovery during deployment or data issues |
+| AIOps | Fixed AIOps workflow to run after `CI` and upload an AI/fallback DevOps report | Reduces failure analysis time |
+| Infrastructure as Code | Made Terraform SSH access configurable with `ssh_allowed_cidr` | Keeps provisioning automated while improving access control |
+
+### Validation Commands
+
+```bash
+git status --short --branch
+kubectl kustomize k8s/overlays/dev
+kubectl kustomize k8s/overlays/staging
+kubectl kustomize k8s/overlays/production
+grep -n "prometheus\|metrics" backend/go.mod backend/main.go monitoring/prometheus.yml
+grep -n "DB_USER\|DB_PASSWORD\|DB_HOST\|docker compose exec" scripts/backup-mysql.sh scripts/restore-mysql.sh
+grep -n "ssh_allowed_cidr\|from_port   = 22\|cidr_blocks" terraform/main.tf terraform/variables.tf
+```
+
+### Screenshot Checklist
+
+Use these as proof for the hackathon submission:
+
+- GitHub Actions CI workflow with PR trigger, Docker cache, and summary
+- Kustomize `dev`, `staging`, and `production` overlay validation
+- DevSecOps workflow showing Trivy `exit-code: '1'` and `govulncheck ./...`
+- Backend `/metrics` endpoint and Prometheus `metrics_path: '/metrics'`
+- Dockerfile and `.dockerignore` optimization
+- Backup/restore scripts using `docker compose exec -T db`
+- AIOps workflow with `workflows: ["CI"]` and report artifact upload
+- Terraform `ssh_allowed_cidr` variable
+
+---
+
 > **New here? Two beginner-friendly companion guides:**
 >
 > - [`docs/skillpulse-cicd-guide.pdf`](docs/skillpulse-cicd-guide.pdf) — chapter one. 29 pages on the GitHub Actions pipeline: DevOps foundations, CI/CD, containers, deploying to a real EC2, plus resume + interview prep.

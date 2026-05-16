@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/trainwithshubham/skillpulse/database"
 	"github.com/trainwithshubham/skillpulse/handlers"
 )
@@ -27,6 +28,7 @@ func main() {
 
 	// Health check
 	router.GET("/health", handlers.HealthCheck)
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	port := os.Getenv("PORT")
 	if port == "" {

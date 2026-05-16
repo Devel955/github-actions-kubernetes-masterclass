@@ -1,0 +1,95 @@
+name: AIOps - AI Powered DevOps
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  ai-devops-report:
+    name: AI DevOps Report
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare workflow context
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_STATUS: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          {
+            echo "Workflow: ${WORKFLOW_NAME}"
+            echo "Status: ${WORKFLOW_STATUS}"
+            echo "Commit: ${COMMIT_SHA}"
+            echo "Run URL: ${WORKFLOW_URL}"
+          } > aiops-context.txt
+
+      - name: Generate AI DevOps report
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WORKFLOW_STATUS: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            {
+              echo "# AIOps Report"
+              echo
+              echo "ANTHROPIC_API_KEY is not configured, so this run generated a local fallback report."
+              echo
+              echo "Workflow status: ${WORKFLOW_STATUS}"
+              echo
+              echo "Recommended checks:"
+              echo "- Inspect Docker build, registry login, and dependency steps."
+              echo "- Confirm Docker Hub secrets and the DEPLOY_ENABLED repository variable."
+              echo "- Review DevSecOps scan output before promoting to production."
+            } > aiops-report.md
+            exit 0
+          fi
+
+          PROMPT=$(cat <<'EOF'
+          You are an AIOps assistant for the SkillPulse three-tier DevOps project.
+          Use the workflow context to produce:
+          1. likely root cause or release risk,
+          2. three concrete fixes,
+          3. prevention steps for the next deployment.
+          Keep the response concise and actionable.
+          EOF
+          )
+
+          jq -n \
+            --arg model "claude-3-5-sonnet-20241022" \
+            --arg prompt "$PROMPT" \
+            --rawfile context aiops-context.txt \
+            '{
+              model: $model,
+              max_tokens: 1000,
+              messages: [
+                {
+                  role: "user",
+                  content: ($prompt + "\n\nContext:\n" + $context)
+                }
+              ]
+            }' > request.json
+
+          curl -sS https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @request.json > aiops-response.json
+
+          jq -r '.content[0].text // .' aiops-response.json > aiops-report.md
+
+      - name: Upload AIOps report
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiops-report
+          path: |
+            aiops-context.txt
+            aiops-report.md
