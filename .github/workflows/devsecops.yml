@@ -1,4 +1,3 @@
-```yaml
 name: DevSecOps - Security Scan
 
 on:
@@ -73,4 +72,3 @@ jobs:
       - name: Run govulncheck
         working-directory: ./backend
         run: govulncheck ./... || true
-```
