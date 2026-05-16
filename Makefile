@@ -1,5 +1,6 @@
 CLUSTER  ?= skillpulse
-NAMESPACE ?= skillpulse
+ENV ?= dev
+NAMESPACE ?= skillpulse-$(ENV)
 BACKEND_IMAGE  ?= trainwithshubham/skillpulse-backend:latest
 FRONTEND_IMAGE ?= trainwithshubham/skillpulse-frontend:latest
 
@@ -23,10 +24,7 @@ load: ## Push built images into the kind node
 	kind load docker-image $(FRONTEND_IMAGE) --name $(CLUSTER)
 
 apply: ## Apply manifests and wait for rollouts
-	kubectl apply -f k8s/00-namespace.yaml \
-	              -f k8s/10-mysql.yaml \
-	              -f k8s/20-backend.yaml \
-	              -f k8s/30-frontend.yaml
+	kubectl apply -k k8s/overlays/$(ENV)
 	kubectl rollout status statefulset/mysql    -n $(NAMESPACE) --timeout=180s
 	kubectl rollout status deployment/backend   -n $(NAMESPACE) --timeout=120s
 	kubectl rollout status deployment/frontend  -n $(NAMESPACE) --timeout=60s
