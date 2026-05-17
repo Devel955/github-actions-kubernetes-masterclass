@@ -1,4 +1,4 @@
-name: CD (kind cluster — manifest bump)
+name: CD (GitOps image tag bump)
 
 on:
   workflow_run:
@@ -12,12 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Pin backend + frontend images to commit SHA
+      - name: Pin Helm image tags to commit SHA
         env:
           SHA: ${{ github.event.workflow_run.head_sha }}
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -26,8 +27,11 @@ jobs:
             echo "ERROR: DOCKERHUB_USERNAME secret is not set."
             exit 1
           fi
-          sed -i "s|image: ${DOCKER_USER}/skillpulse-backend:.*|image: ${DOCKER_USER}/skillpulse-backend:${SHA}|"  k8s/20-backend.yaml k8s/base/20-backend.yaml
-          sed -i "s|image: ${DOCKER_USER}/skillpulse-frontend:.*|image: ${DOCKER_USER}/skillpulse-frontend:${SHA}|" k8s/30-frontend.yaml k8s/base/30-frontend.yaml
+
+          for file in helm/skillpulse/values-dev.yaml helm/skillpulse/values-stg.yaml helm/skillpulse/values-prd.yaml; do
+            sed -i "s|image: .*/skillpulse-backend:.*|image: ${DOCKER_USER}/skillpulse-backend:${SHA}|" "$file"
+            sed -i "s|image: .*/skillpulse-frontend:.*|image: ${DOCKER_USER}/skillpulse-frontend:${SHA}|" "$file"
+          done
 
       - name: Commit + push if changed
         env:
@@ -35,10 +39,18 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           if git diff --quiet; then
-            echo "Manifests already pinned to ${SHA}; nothing to commit."
+            echo "Helm values already pinned to ${SHA}; nothing to commit."
             exit 0
           fi
-          git add k8s/20-backend.yaml k8s/30-frontend.yaml k8s/base/20-backend.yaml k8s/base/30-frontend.yaml
-          git commit -m "deploy: pin backend+frontend to ${SHA:0:7}"
+
+          git add helm/skillpulse/values-dev.yaml helm/skillpulse/values-stg.yaml helm/skillpulse/values-prd.yaml
+          git commit -m "deploy: pin Helm images to ${SHA:0:7}"
           git push
+
+      - name: Deployment health gate note
+        run: |
+          echo "Image tags were updated in Helm values."
+          echo "Argo CD will sync the desired state automatically."
+          echo "Verify rollout in Argo CD: skillpulse-dev / skillpulse-stg / skillpulse-prd"

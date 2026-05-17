@@ -25,6 +25,8 @@ services:
     image: ${DOCKERHUB_USERNAME:-local}/skillpulse-backend:${IMAGE_TAG:-latest}
     build: ./backend
     restart: unless-stopped
+    ports:
+      - "8080:8080"
     networks:
       - skillpulse
     environment:

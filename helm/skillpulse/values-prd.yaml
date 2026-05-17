@@ -1,0 +1,15 @@
+namespace: skillpulse-prd
+
+backend:
+  image: trainwithshubham/skillpulse-backend:latest
+  replicas: 2
+
+frontend:
+  image: trainwithshubham/skillpulse-frontend:latest
+  replicas: 2
+
+mysql:
+  image: mysql:8.4
+
+canary:
+  enabled: false

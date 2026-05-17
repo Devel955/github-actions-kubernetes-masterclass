@@ -1,10 +1,10 @@
-name: CD Pipeline
+name: CD
 
 on:
   workflow_run:
-    workflows: ["CI Pipeline"]
-    types:
-      - completed
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -13,44 +13,73 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
+      - name: Deploy to EC2 using Docker Compose
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-
           script: |
             set -e
 
-            REPO=~/app
+            APP_DIR="$HOME/github-actions-kubernetes-masterclass"
 
-            # Clone if not exists
-            if [ ! -d "$REPO" ]; then
-              git clone ${{ github.server_url }}/${{ github.repository }}.git $REPO
+            if [ ! -d "$APP_DIR" ]; then
+              git clone ${{ github.server_url }}/${{ github.repository }}.git "$APP_DIR"
             fi
 
-            cd $REPO
-            git pull origin main
-            SHA=$(git rev-parse HEAD)
-            IMAGE_TAG=${SHA::7}
+            cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+            IMAGE_TAG=$(git rev-parse --short=7 HEAD)
+            
+            cat > .env <<EOF
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            IMAGE_TAG=$IMAGE_TAG
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            DB_HOST=db
+            DB_PORT=3306
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            EOF
 
-            # Docker login
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            # Clean env
-            : > .env
-
-            # Create env safely
-            printf "DOCKERHUB_USERNAME=%s\n" "${{ secrets.DOCKERHUB_USERNAME }}" >> .env
-            printf "IMAGE_TAG=%s\n" "$IMAGE_TAG" >> .env
-
-            printf "DB_NAME=%s\n" "${{ secrets.DB_NAME }}" >> .env
-            printf "DB_USER=%s\n" "${{ secrets.DB_USER }}" >> .env
-            printf "DB_PASSWORD=%s\n" "${{ secrets.DB_PASSWORD }}" >> .env
-            printf "MYSQL_ROOT_PASSWORD=%s\n" "${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
-
-            # Deploy
             docker compose pull
             docker compose down --remove-orphans
             docker compose up -d
+            docker image prune -f
+
+            docker compose ps
+
+            echo "Waiting for services to become healthy..."
+            MAX_ATTEMPTS=30
+            ATTEMPT=1
+
+            while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+              echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS"
+
+              FRONTEND_OK=false
+              BACKEND_OK=false
+
+              if curl -fsS http://localhost >/dev/null 2>&1; then
+                FRONTEND_OK=true
+              fi
+
+              if curl -fsS http://localhost:8080/health >/dev/null 2>&1; then
+                BACKEND_OK=true
+              fi
+
+              if [ "$FRONTEND_OK" = true ] && [ "$BACKEND_OK" = true ]; then
+                echo "Deployment health check passed"
+                docker compose ps
+                exit 0
+              fi
+
+              sleep 5
+              ATTEMPT=$((ATTEMPT + 1))
+            done
+
+            echo "Deployment health check failed"
+            docker compose ps
+            docker compose logs --tail=80
+            exit 1

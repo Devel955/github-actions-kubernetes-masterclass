@@ -1,0 +1,12 @@
+namespace: skillpulse-dev
+
+backend:
+  image: trainwithshubham/skillpulse-backend:latest
+  replicas: 1
+
+frontend:
+  image: trainwithshubham/skillpulse-frontend:latest
+  replicas: 1
+
+mysql:
+  image: mysql:8.4
