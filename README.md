@@ -157,10 +157,10 @@ Triggered automatically when CI completes successfully (`workflow_run` + a `conc
 It SSHes into an EC2 instance and runs:
 
 ```bash
-if [ ! -d ~/skillpulse ]; then
-  git clone <this repo> ~/skillpulse
+if [ ! -d ~/github-actions-kubernetes-masterclass ]; then
+  git clone <this repo> ~/github-actions-kubernetes-masterclass
 fi
-cd ~/skillpulse
+cd ~/github-actions-kubernetes-masterclass
 git pull origin main
 [ -f .env ] || { echo "ERROR: .env missing"; exit 1; }
 docker compose pull
