@@ -15,8 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux \
 # Stage 2: Runtime
 FROM alpine:3.23
 
-RUN apk --no-cache add ca-certificates && \
-    addgroup -S skillpulse && \
+RUN addgroup -S skillpulse && \
     adduser -S skillpulse -G skillpulse
 
 WORKDIR /app
