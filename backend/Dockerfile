@@ -13,10 +13,19 @@ RUN CGO_ENABLED=0 GOOS=linux \
 
 
 # Stage 2: Runtime
-FROM gcr.io/distroless/static-debian12@sha256:20bc6c0bc4d625a22a8fde3e55f6515709b32055ef8fb9cfbddaa06d1760f838
+FROM alpine:3.23
 
-COPY --from=builder /app/skillpulse /skillpulse
+RUN apk --no-cache add ca-certificates && \
+    addgroup -S skillpulse && \
+    adduser -S skillpulse -G skillpulse
+
+WORKDIR /app
+
+COPY --from=builder /app/skillpulse ./skillpulse
+RUN chown -R skillpulse:skillpulse /app
+
+USER skillpulse
 
 EXPOSE 8080
 
-ENTRYPOINT ["/skillpulse"]
+ENTRYPOINT ["./skillpulse"]
